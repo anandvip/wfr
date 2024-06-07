@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Withdrawal Frequency Reminder</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .calculator, .history {
+            width: 48%;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1, h2 {
+            margin-top: 0;
+            text-align: center;
+        }
+
+        p {
+            margin-top: 0;
+            line-height: 1.5;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            margin: 10px 0 5px;
+        }
+
+        input {
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 10px;
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        .results, .history-log {
+            margin-top: 20px;
+        }
+
+        footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 0.8em;
+            color: #888;
+        }
+
+        .usd-conversion {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Withdrawal Frequency Reminder</h1>
+        <h2>For the platform FX Road team for Indian clients</h2>
+    </header>
+    <div class="container">
+        <div class="calculator">
+            <h1>Trading Withdrawal Calculator</h1>
+            <p>This calculator helps you determine the frequency and amount to withdraw based on your investment and profit targets. The goal is to recover your initial investment efficiently. Here's how it works:</p>
+            <p>
+                1. **Investment Amount (INR)**: The total amount you initially invest.<br>
+                2. **Profit Target (INR)**: The profit threshold you aim to reach before making a withdrawal.<br>
+                3. **Withdrawal Amount ($)**: The amount you want to withdraw each time you reach the profit target.<br>
+            </p>
+            <p>
+                **Logic**: Imagine your investment as a pot of money. Every time your profits fill this pot to a certain level (your profit target), you take a portion out (withdrawal amount). You keep doing this until you've taken out all the money you initially put in multiple times.
+            </p>
+            <form id="calculator-form">
+                <label for="investment-amount">Investment Amount (INR):</label>
+                <input type="number" id="investment-amount" required>
+                <p id="investment-usd" class="usd-conversion"></p>
+
+                <label for="profit-target">Profit Target per Withdrawal (INR): 20000.00</label>
+                <p id="profit-target-usd" class="usd-conversion"></p>
+                
+                <label for="withdrawal-amount">Withdrawal Amount ($):</label>
+                <input type="number" id="withdrawal-amount" value="225" required>
+                
+                <button type="submit">Calculate</button>
+            </form>
+            
+            <div class="results">
+                <h2>Results:</h2>
+                <p id="result"></p>
+            </div>
+        </div>
+
+        <div class="history">
+            <h2>Investment History</h2>
+            <div class="history-log" id="history-log"></div>
+        </div>
+    </div>
+    <footer>
+        <p>Trading involves risks. Trader associate representative name: Ahmed [Cyprus], Client name: Vipul Anand.</p>
+    </footer>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('calculator-form');
+            const result = document.getElementById('result');
+            const investmentAmountInput = document.getElementById('investment-amount');
+            const investmentUSD = document.getElementById('investment-usd');
+            const profitTargetUSD = document.getElementById('profit-target-usd');
+            const historyLog = document.getElementById('history-log');
+
+            const profitTargetINR = 20000;
+
+            async function fetchExchangeRate() {
+                try {
+                    const response = await fetch('https://api.exchangerate-api.com/v4/latest/INR');
+                    const data = await response.json();
+                    return data.rates.USD;
+                } catch (error) {
+                    console.error('Error fetching exchange rate:', error);
+                    return null;
+                }
+            }
+
+            async function updateConversion() {
+                const exchangeRate = await fetchExchangeRate();
+                if (!exchangeRate) {
+                    investmentUSD.innerHTML = 'Error fetching exchange rate. Please try again later.';
+                    profitTargetUSD.innerHTML = '';
+                    return;
+                }
+
+                const investmentINR = parseFloat(investmentAmountInput.value);
+                const investmentInUSD = (investmentINR * exchangeRate).toFixed(2);
+                investmentUSD.innerHTML = `Equivalent USD on ${new Date().toLocaleDateString()}: $${investmentInUSD}`;
+                
+                const profitTargetInUSD = (profitTargetINR * exchangeRate).toFixed(2);
+                profitTargetUSD.innerHTML = `Equivalent USD: $${profitTargetInUSD}`;
+            }
+
+            function addHistoryLog(investmentINR, investmentInUSD) {
+                const logEntry = document.createElement('p');
+                logEntry.textContent = `Investment: INR ${investmentINR} (USD ${investmentInUSD}) on ${new Date().toLocaleString()}`;
+                historyLog.appendChild(logEntry);
+
+                const history = JSON.parse(localStorage.getItem('investmentHistory')) || [];
+                history.push(logEntry.textContent);
+                localStorage.setItem('investmentHistory', JSON.stringify(history));
+            }
+
+            function loadHistoryLog() {
+                const history = JSON.parse(localStorage.getItem('investmentHistory')) || [];
+                history.forEach(entry => {
+                    const logEntry = document.createElement('p');
+                    logEntry.textContent = entry;
+                    historyLog.appendChild(logEntry);
+                });
+            }
+
+            investmentAmountInput.addEventListener('input', updateConversion);
+
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault();
+
+                const investmentINR = parseFloat(investmentAmountInput.value);
+                const exchangeRate = await fetchExchangeRate();
+                if (!exchangeRate) {
+                    result.innerHTML = 'Error fetching exchange rate. Please try again later.';
+                    return;
+                }
+
+                const investmentInUSD = (investmentINR * exchangeRate).toFixed(2);
+                const profitTargetInUSD = (profitTargetINR * exchangeRate).toFixed(2);
+                const withdrawalAmountUSD = parseFloat(document.getElementById('withdrawal-amount').value);
+
+                // Save data to localStorage
+                const data = {
+                    investment: investmentINR,
+                    profitTarget: profitTargetINR,
+                    withdrawalAmount: withdrawalAmountUSD
+                };
+                localStorage.setItem('withdrawalCalculator', JSON.stringify(data));
+
+                // Calculate the results
+                const totalWithdrawals = Math.floor(investmentInUSD / profitTargetInUSD);
+                const totalWithdrawnUSD = totalWithdrawals * withdrawalAmountUSD;
+                const totalWithdrawnINR = (totalWithdrawnUSD / exchangeRate).toFixed(2);
+
+                const resultText = `
+                    Investment Amount: INR ${investmentINR.toFixed(2)} (USD ${investmentInUSD})<br>
+                    Profit Target per Withdrawal: INR ${profitTargetINR.toFixed(2)} (USD ${profitTargetInUSD})<br>
+                    Withdrawal Amount: $${withdrawalAmountUSD.toFixed(2)}<br>
+                    Number of Withdrawals: ${totalWithdrawals}<br>
+                    Total Amount Withdrawn: $${totalWithdrawnUSD.toFixed(2)} (INR ${totalWithdrawnINR})<br>
+                `;
+
+                result.innerHTML = resultText;
+                addHistoryLog(investmentINR, investmentInUSD);
+            });
+
+            loadHistoryLog();
+        });
+    </script>
+</body>
+</html>
